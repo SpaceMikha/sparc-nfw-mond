@@ -21,6 +21,8 @@ def starting_points(gal, model):
         return [np.array(nuis)]
     if model == "mond_a0":
         return [np.array([np.log10(M.A0_SI)] + nuis)]
+    if model == "ccc":
+        return [np.array([lr] + nuis) for lr in (-25.5, -24.5, -23.5, -22.5)]
     return [np.array([lc, lv] + nuis) for lc in (0.3, 0.9, 1.5) for lv in (1.5, 2.0, 2.5)]
 
 

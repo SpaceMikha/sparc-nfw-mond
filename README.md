@@ -75,6 +75,38 @@ paper/               the published table, for comparison
   discarded). Random seeds are fixed per galaxy and model, so a run is
   reproducible on a given machine.
 
+## Extension: the CCC model
+
+The repository also contains a fit of the covarying-coupling-constants (CCC)
+model of Gupta & Samaras ([arXiv:2608.11575](https://arxiv.org/abs/2608.11575)).
+It is not part of the paper and does not change any of its results.
+
+```
+python scripts/run_fits.py --models ccc --output fits_ccc.csv
+python scripts/analyse_ccc.py     # -> results/summary_ccc.txt, results/table_ccc.csv
+```
+
+Gupta & Samaras define the model in the inverse direction: the observed
+rotation curve is turned into a density and used to predict the baryons, with
+`rho_obs = rho_bar * nu(rho_bar / rho_t)` in the spherical approximation.
+The implementation here (`vccc2` in `sparcfit/models.py`) applies the same
+relation forwards, so that CCC goes through the same likelihood and priors as
+the other models:
+
+- the baryonic mass of each radial shell, `dM = d(V_bar^2 R) / G`, is boosted
+  by `nu` evaluated at the mean density of the shell, and the boosted shells
+  are summed to give the model velocity;
+- `nu` is the "standard" smooth function, `1 / (1 - exp(-sqrt(y)))`;
+- the turn-off density `rho_t` is free in every galaxy, with a flat prior on
+  `log10(rho_t / g cm^-3)` between -27 and -21, and counts as one parameter;
+- no smoothing is applied to the baryonic curves, so shells in which
+  `V_bar^2 R` decreases carry negative mass.
+
+The forward and inverse formulations are not equivalent in the presence of
+noise and of the spherical approximation, so the numbers in
+`results/summary_ccc.txt` are not directly comparable with those of Gupta &
+Samaras.
+
 ## Reproducibility
 
 The sampler is stochastic, so numbers that depend on posterior medians can

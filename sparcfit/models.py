@@ -18,6 +18,8 @@ LOGY_LIM = (-1.0, 1.0)             # hard limits on log10 M/L
 LOGC_LIM = (0.0, 2.0)
 LOGV_LIM = (1.0, 2.9)
 LOGA0_LIM = (-12.0, -8.0)         # log10 of a0 in m/s^2
+LOGRHOT_LIM = (-27.0, -21.0)      # log10 of the CCC turn-off density in g/cm^3
+MSUN_KPC3_CGS = 1.98841e33 / (KPC_KM * 1e5) ** 3   # g/cm^3 per Msun/kpc^3
 CM_SCATTER = 0.11                 # dex
 
 MODELS = ("nfw", "lcdm", "mond")
@@ -26,12 +28,13 @@ PARAMS = {
     "lcdm": ("log_c", "log_V200", "log_Yd", "log_Yb", "d", "inc"),
     "mond": ("log_Yd", "log_Yb", "d", "inc"),
     "mond_a0": ("log_a0", "log_Yd", "log_Yb", "d", "inc"),
+    "ccc": ("log_rho_t", "log_Yd", "log_Yb", "d", "inc"),
 }
 
 
 def n_free(model, gal):
     """Number of free parameters; a bulge M/L only counts if there is a bulge."""
-    k = {"nfw": 5, "lcdm": 5, "mond": 3, "mond_a0": 4}[model]
+    k = {"nfw": 5, "lcdm": 5, "mond": 3, "mond_a0": 4, "ccc": 4}[model]
     return k + int(gal.has_bulge)
 
 
@@ -68,6 +71,28 @@ def nu_rar(y):
     return 1.0 / (1.0 - np.exp(-np.sqrt(y)))
 
 
+def vccc2(gal, vb2, d, log_rho_t):
+    """Forward CCC velocity squared at the fitted distance, shape (W, N).
+
+    Gupta & Samaras (arXiv:2608.11575) define the model in the inverse
+    direction, rho_obs = rho_bar * nu(rho_bar / rho_t) in the spherical
+    approximation. Here the same relation is applied forwards, shell by shell
+    on the SPARC radii: the baryonic mass of each shell, dM = d(V_bar^2 R)/G,
+    is boosted by nu evaluated at the mean density of that shell. No smoothing
+    is applied, so shells where V_bar^2 R decreases carry negative mass; they
+    keep their sign and are boosted by nu(|rho|).
+    """
+    R = gal.R
+    edges = np.concatenate([[0.0], R])
+    volume = 4.0 / 3.0 * np.pi * np.diff(edges**3)
+    mass = vb2 * R / G                                   # enclosed mass at d = 1
+    shell = np.diff(mass, axis=1, prepend=0.0)
+    rho_t = 10.0 ** np.atleast_1d(log_rho_t)[:, None] / MSUN_KPC3_CGS
+    # At distance factor d masses scale as d^2 and volumes as d^3.
+    y = np.maximum(np.abs(shell) / volume / d / rho_t, 1e-12)
+    return d * G * np.cumsum(shell * nu_rar(y), axis=1) / R
+
+
 def unpack(theta, model):
     theta = np.atleast_2d(theta)
     return {name: theta[:, j] for j, name in enumerate(PARAMS[model])}
@@ -80,6 +105,8 @@ def model_v(theta, gal, model):
     vb2 = vbar2(gal, 10.0 ** p["log_Yd"], 10.0 ** p["log_Yb"])
     if model in ("nfw", "lcdm"):
         v2 = d * vb2 + vnfw2(d * gal.R, p["log_c"], p["log_V200"])
+    elif model == "ccc":
+        v2 = vccc2(gal, vb2, d, p["log_rho_t"])
     else:
         a0 = A0 if model == "mond" else 10.0 ** p["log_a0"][:, None] * 1e-3 * KPC_KM
         # g_bar = V_bar^2 / R does not depend on the distance factor.
@@ -92,7 +119,7 @@ def bounds(gal, model):
     """Hard prior limits (lower, upper) for every parameter."""
     sd = gal.e_D / gal.D
     lim = {
-        "log_c": LOGC_LIM, "log_V200": LOGV_LIM, "log_a0": LOGA0_LIM,
+        "log_c": LOGC_LIM, "log_V200": LOGV_LIM, "log_a0": LOGA0_LIM, "log_rho_t": LOGRHOT_LIM,
         "log_Yd": LOGY_LIM, "log_Yb": LOGY_LIM,
         "d": (max(1.0 - 3.0 * sd, 0.05), 1.0 + 3.0 * sd),
         "inc": (max(gal.inc - 3.0 * gal.e_inc, 1.0), min(gal.inc + 3.0 * gal.e_inc, 90.0)),
