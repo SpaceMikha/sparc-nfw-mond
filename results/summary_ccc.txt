@@ -1,0 +1,19 @@
+Forward CCC model against the three models of the paper
+
+                                        NFW     LCDM     MOND      CCC
+free parameters (no bulge)                5        5        3        4
+median chi2nu, all                     1.68     1.85     2.10     2.74
+median chi2nu, Q=1                     1.48     1.56     1.82     2.94
+fraction chi2nu < 2 (%)                  57       53       49       39
+fraction chi2nu > 10 (%)                  5        9       11       22
+total chi2                             9959    10347    13496    36149
+
+BIC head to head (CCC preferred / other preferred, strong CCC / strong other)
+  CCC vs MOND   58 / 117,  41 /  82   median dBIC +5.4
+  CCC vs NFW    61 / 114,  26 /  89   median dBIC +6.8
+  CCC vs LCDM   69 / 106,  34 /  87   median dBIC +5.3
+
+lowest BIC among free NFW / MOND / CCC: 75 / 59 / 41
+
+turn-off density: median log10(rho_t / g cm^-3) = -24.10, scatter 1.03 dex
+disk M/L in the CCC fits: median 0.60, 16-84% 0.38-1.16
